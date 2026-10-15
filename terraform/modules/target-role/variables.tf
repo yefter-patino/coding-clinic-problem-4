@@ -60,7 +60,7 @@ variable "external_id" {
 
   validation {
     # AWS allows 2-1224 chars of [\w+=,.@:/-]. We ask for at least 32 so it can't be guessed.
-    condition     = can(regex("^[a-zA-Z0-9_+=,.@:/-]{32,1224}$", var.external_id))
+    condition     = length(var.external_id) >= 32 && length(var.external_id) <= 1224 && can(regex("^[a-zA-Z0-9_+=,.@:/-]+$", var.external_id))
     error_message = "external_id must be 32-1224 characters of letters, digits or _ + = , . @ : / -"
   }
 }
