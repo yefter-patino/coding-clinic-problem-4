@@ -1,0 +1,58 @@
+# Example: how a real pipeline uses the two roles.
+#   1. GitHub logs in to the TOOLING account with OIDC (no AWS keys stored in GitHub).
+#   2. xacct assumes the TARGET role in the workload account, sending the External ID.
+#   3. Later steps run with the target role's short-lived, least-privilege credentials.
+#
+# Set these in GitHub: Settings > Environments > prod
+#   Variables: AWS_REGION, PIPELINE_ROLE_ARN, TARGET_ROLE_ARN, ARTIFACT_BUCKET
+#   Secret:    XACCT_EXTERNAL_ID
+# Add "Required reviewers" to the prod environment so a person approves each run.
+
+name: deploy-example
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write # needed for OIDC
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod # must match the environment in github_subjects
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install xacct
+        run: pip install -r requirements.txt
+
+      - name: Log in to the tooling account (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.PIPELINE_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Prove the target role is locked down (fails the job if not)
+        env:
+          XACCT_EXTERNAL_ID: ${{ secrets.XACCT_EXTERNAL_ID }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: python -m xacct verify --role-arn "${{ vars.TARGET_ROLE_ARN }}"
+
+      - name: Assume the target role (External ID)
+        env:
+          XACCT_EXTERNAL_ID: ${{ secrets.XACCT_EXTERNAL_ID }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: python -m xacct assume --role-arn "${{ vars.TARGET_ROLE_ARN }}" --format github
+
+      - name: Show who we are now
+        run: aws sts get-caller-identity
+
+      - name: Example deploy step (upload a build artifact)
+        run: |
+          echo "build ${{ github.sha }}" > artifact.txt
+          aws s3 cp artifact.txt "s3://${{ vars.ARTIFACT_BUCKET }}/builds/${{ github.sha }}/artifact.txt"

@@ -1,0 +1,24 @@
+# Copy to terraform.tfvars and change the values. terraform.tfvars is ignored by git.
+
+aws_region  = "us-east-1"
+aws_profile = "tooling" # your AWS CLI profile for the CI/CD account; "" in CI
+
+name_prefix = "yefter"
+
+# Set to false (and fill in the ARN) if the account already has a GitHub OIDC provider.
+create_github_oidc_provider       = true
+existing_github_oidc_provider_arn = ""
+
+# Exact "sub" values. Find yours with the steps in the README (section "GitHub subject").
+github_subjects = [
+  "repo:YOUR-GITHUB-USER@OWNER-ID/YOUR-REPO@REPO-ID:environment:prod",
+]
+
+targets = [
+  { account_id = "REPLACE-with-12-digit-workload-account-id" },
+]
+
+tags = {
+  Owner       = "yefter"
+  Environment = "shared"
+}

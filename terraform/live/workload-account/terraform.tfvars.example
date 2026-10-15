@@ -1,0 +1,48 @@
+# Copy to terraform.tfvars and change the values. terraform.tfvars is ignored by git.
+# The External ID is NOT here on purpose. Pass it as an environment variable:
+#   export TF_VAR_external_id="$(python -m xacct new-external-id)"   # first time only, keep it safe
+
+aws_region  = "us-east-1"
+aws_profile = "workload" # your AWS CLI profile for this workload account; "" in CI
+
+name_prefix       = "yefter"
+role_name         = "cicd-deploy"
+pipeline_role_arn = "arn:aws:iam::REPLACE-tooling-account-id:role/yefter-cicd-pipeline"
+
+# Example: the pipeline uploads build artifacts to one S3 bucket and pushes images to one ECR repository.
+# Replace the bucket name, region, account id and repository with your own.
+policy_statements = [
+  {
+    sid       = "ListArtifactBucket"
+    actions   = ["s3:ListBucket"]
+    resources = ["arn:aws:s3:::REPLACE-artifact-bucket"]
+  },
+  {
+    sid       = "WriteArtifacts"
+    actions   = ["s3:PutObject", "s3:GetObject"]
+    resources = ["arn:aws:s3:::REPLACE-artifact-bucket/*"]
+  },
+  {
+    # GetAuthorizationToken does not support resource ARNs, so "*" is required here.
+    sid                     = "EcrLogin"
+    actions                 = ["ecr:GetAuthorizationToken"]
+    resources               = ["*"]
+    allow_wildcard_resource = true
+  },
+  {
+    sid = "PushOneEcrRepository"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:CompleteLayerUpload",
+      "ecr:InitiateLayerUpload",
+      "ecr:PutImage",
+      "ecr:UploadLayerPart",
+    ]
+    resources = ["arn:aws:ecr:REPLACE-region:REPLACE-workload-account-id:repository/REPLACE-repo-name"]
+  },
+]
+
+tags = {
+  Owner       = "yefter"
+  Environment = "prod"
+}

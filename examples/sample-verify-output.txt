@@ -1,0 +1,20 @@
+# 1) Trust checks: run inside the pipeline, after the OIDC login (pipeline role credentials)
+$ python -m xacct verify --role-arn arn:aws:iam::222222222222:role/yefter-cicd-deploy
+
+[PASS] 1. caller identity                            arn:aws:sts::111111111111:assumed-role/yefter-cicd-pipeline/GitHubActions
+[PASS] 2. assume WITH the External ID is allowed     allowed
+[PASS] 3. identity in the target account             arn:aws:sts::222222222222:assumed-role/yefter-cicd-deploy/yefter-cicd-local
+[PASS] 4. assume WITHOUT the External ID is denied   denied (AccessDenied)
+[PASS] 5. assume with a WRONG External ID is denied  denied (AccessDenied)
+5 passed, 0 failed
+
+# 2) Least-privilege checks: run from a laptop with an admin/auditor profile in the workload account
+$ python -m xacct verify --role-arn arn:aws:iam::222222222222:role/yefter-cicd-deploy \
+    --policy-only --expectations config/expectations.json --simulate-profile workload-admin
+
+[PASS] s3:PutObject on arn:aws:s3:::yefter-demo-artifacts/build/app.zip is allowed    allowed
+[PASS] s3:DeleteObject on arn:aws:s3:::yefter-demo-artifacts/build/app.zip is denied  implicitDeny
+[PASS] iam:CreateUser on * is denied                                                  explicitDeny
+[PASS] sts:AssumeRole on * is denied                                                  explicitDeny
+[PASS] ec2:RunInstances on * is denied                                                implicitDeny
+5 passed, 0 failed

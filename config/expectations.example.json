@@ -1,0 +1,51 @@
+{
+  "description": "What the target role should and should not be able to do. Used by: python -m xacct verify --expectations <this file> --simulate-profile <admin profile in the workload account>. Copy to config/expectations.json and replace the REPLACE values.",
+  "checks": [
+    {
+      "action": "s3:PutObject",
+      "resource": "arn:aws:s3:::REPLACE-artifact-bucket/build/app.zip",
+      "expect": "allowed"
+    },
+    {
+      "action": "s3:PutObject",
+      "resource": "arn:aws:s3:::some-other-bucket/app.zip",
+      "expect": "denied"
+    },
+    {
+      "action": "s3:DeleteObject",
+      "resource": "arn:aws:s3:::REPLACE-artifact-bucket/build/app.zip",
+      "expect": "denied"
+    },
+    {
+      "action": "s3:DeleteBucket",
+      "resource": "arn:aws:s3:::REPLACE-artifact-bucket",
+      "expect": "denied"
+    },
+    {
+      "action": "ecr:PutImage",
+      "resource": "arn:aws:ecr:REPLACE-region:REPLACE-workload-account-id:repository/REPLACE-repo-name",
+      "expect": "allowed"
+    },
+    {
+      "action": "ecr:DeleteRepository",
+      "resource": "arn:aws:ecr:REPLACE-region:REPLACE-workload-account-id:repository/REPLACE-repo-name",
+      "expect": "denied"
+    },
+    {
+      "action": "iam:CreateUser",
+      "expect": "denied"
+    },
+    {
+      "action": "iam:AttachRolePolicy",
+      "expect": "denied"
+    },
+    {
+      "action": "sts:AssumeRole",
+      "expect": "denied"
+    },
+    {
+      "action": "ec2:RunInstances",
+      "expect": "denied"
+    }
+  ]
+}

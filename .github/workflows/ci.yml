@@ -1,0 +1,92 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Formatting
+        run: ruff format --check .
+
+      - name: JSON files are valid
+        run: |
+          for f in config/*.json; do
+            python -m json.tool "$f" > /dev/null && echo "ok $f"
+          done
+
+      - name: Tests (no AWS account needed)
+        run: pytest
+
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir:
+          - terraform/modules/pipeline-role
+          - terraform/modules/target-role
+          - terraform/live/tooling-account
+          - terraform/live/workload-account
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.0"
+          terraform_wrapper: false # the wrapper hides real exit codes
+
+      - name: Format
+        run: terraform fmt -check -recursive
+        working-directory: ${{ matrix.dir }}
+
+      - name: Init (no backend, no AWS account needed)
+        run: terraform init -backend=false -input=false
+        working-directory: ${{ matrix.dir }}
+
+      - name: Validate
+        run: terraform validate
+        working-directory: ${{ matrix.dir }}
+
+      - name: Tests (mock AWS provider)
+        if: contains(matrix.dir, 'modules/')
+        run: terraform test
+        working-directory: ${{ matrix.dir }}
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install checkov
+        run: pip install checkov
+
+      - name: Scan Terraform
+        run: checkov -d terraform --framework terraform --compact --quiet --skip-download
